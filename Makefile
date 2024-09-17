@@ -1,4 +1,4 @@
-MYPY_DIRS := $(shell find components bin ! -path '*.egg-info*' ! -path '*__pycache__*' -type d -maxdepth 0 -mindepth 0 | xargs)
+MYPY_DIRS := $(shell find src ! -path '*.egg-info*' ! -path '*__pycache__*' -type d -maxdepth 0 -mindepth 0 | xargs)
 COV_DIRS := $(shell find components layer/shared bin assets ! -path '*.egg-info*' ! -path '*__pycache__*' -type d -maxdepth 2 -mindepth 0 | xargs)
 ARTIFACTS_DIR ?= build
 

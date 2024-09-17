@@ -2,8 +2,6 @@
 
 # Example Tests
 
-import pytest
-
 
 def capital_case(x):
     return x.capitalize()
@@ -11,4 +9,3 @@ def capital_case(x):
 
 def test_capital_case():
     assert capital_case("semaphore") == "Semaphore"
-
