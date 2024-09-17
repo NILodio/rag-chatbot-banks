@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.isort]
+profile = "black"
+known_first_party = ["shared"]
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+
+[tool.ruff]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".aws-sam",
+    ".git",
+    ".mypy_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "venv",
+]
+
+line-length = 120
+
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "C901", "B", "FBT", "N", "UP", "TRY", "SIM", "PT", "ERA"]
+ignore = []
