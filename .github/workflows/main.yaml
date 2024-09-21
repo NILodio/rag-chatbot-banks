@@ -1,23 +1,27 @@
 name: Event-driven dataflow with Prefect
+
 on:
   workflow_dispatch:
 
 jobs:
   deploy:
+    name: deploy
     runs-on: ubuntu-latest
+    env:
+      SERVERLESS_ACCESS_KEY: ${{ secrets.SERVERLESS_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Set Prefect API Key in serverless.yml
-        run: sed -i 's/prefectapikey/${{ secrets.PREFECT_API_KEY }}/g' serverless.yml
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 18
-      - run: npm install -g serverless
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      - run: sls deploy
-      - run: sls invoke -f ml
+    - uses: actions/checkout@v3
+    - name: install-python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    - name: Set Prefect API Key in serverless.yml
+      run: sed -i 's/prefectapikey/${{ secrets.PREFECT_API_KEY }}/g' serverless.yml
+    - name: install serverless
+      run: npm i -g serverless
+    - name: severless deploy
+      run: sls deploy --force
+    - name: severless test
+      run: sls invoke -f ml

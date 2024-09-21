@@ -1,29 +1,25 @@
 service: eventdriven-dataflow
 
-frameworkVersion: '3'
+frameworkVersion: '4'
 
 provider:
   name: aws
-  runtime: python3.12
-  memorySize: 512 # optional, in MB, default is 1024; can be 128, 256, 512, 1024, 2048, 4096, 5120, ...
-  timeout: 10 # optional, in seconds, default is 6
+  runtime: python3.11
+  memorySize: 512 # optional, in MB
+  timeout: 10 # optional, in seconds
   ecr:
     images:
       etl:
         path: ./etl
       ml:
         path: ./ml
-      healthcheck:
-        path: ./healthcheck
-      s3_event_flow:
-        path: ./s3_event_flow
       s3_reactive_flow:
         path: ./s3_reactive_flow
 
   environment:
     PREFECT_HOME: /tmp/.prefect
     PREFECT_API_KEY: prefectapikey
-    PREFECT_API_URL: 'https://api.prefect.cloud/api/accounts/c5276cbb-62a2-4501-b64a-74d3d900d781/workspaces/aaeffa0e-13fa-460e-a1f9-79b53c05ab36'
+    PREFECT_API_URL: 'https://api.prefect.cloud/api/accounts/5a36067c-f152-4310-bbd9-426b54b365a2/workspaces/2f1757d0-5c92-4b1f-8fe1-d38d653fa490'
 
   iam:
     role:
@@ -59,3 +55,29 @@ functions:
             - prefix: timeseries/
             - suffix: .snappy.parquet
           existing: true
+
+resources:
+  Resources:
+    S3Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: prefectdata
+        NotificationConfiguration:
+          LambdaConfigurations:
+            - Event: s3:ObjectCreated:*
+              Filter:
+                S3Key:
+                  Rules:
+                    - Name: prefix
+                      Value: "timeseries/"
+                    - Name: suffix
+                      Value: ".snappy.parquet"
+              Function: !GetAtt S3ReactiveFlowLambdaFunction.Arn
+
+    LambdaInvokePermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        FunctionName: !GetAtt S3ReactiveFlowLambdaFunction.Arn
+        Action: lambda:InvokeFunction
+        Principal: s3.amazonaws.com
+        SourceArn: !Sub arn:aws:s3:::prefectdata
