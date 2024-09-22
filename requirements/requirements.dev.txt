@@ -13,4 +13,4 @@ pre-commit
 types-beautifulsoup4
 pytest-mock
 pytest-env
-prefect
+prefect-aws
