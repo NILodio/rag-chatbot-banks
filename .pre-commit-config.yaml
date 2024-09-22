@@ -17,7 +17,3 @@ repos:
     hooks:
       - id: isort
         name: isort (python)
--   repo: https://github.com/aws-cloudformation/cfn-lint
-    rev: v0.84.0
-    hooks:
-    -   id: cfn-lint

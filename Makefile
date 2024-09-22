@@ -34,6 +34,10 @@ install:
 develop: install
 	python -m pre_commit install
 
+.PHONY: uninstall
+uninstall:
+	pip uninstall -y $(pip freeze)
+
 .PHONY: export_dev_env
 export_dev_env:
     export $(cat .env.dev | xargs)
