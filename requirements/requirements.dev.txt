@@ -14,3 +14,4 @@ types-beautifulsoup4
 pytest-mock
 pytest-env
 prefect-aws
+s3fs
