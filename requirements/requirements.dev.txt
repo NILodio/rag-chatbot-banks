@@ -7,11 +7,3 @@ mypy
 pytest
 coveralls
 pytest-cov
-pandas
-pytest-dotenv
-pre-commit
-types-beautifulsoup4
-pytest-mock
-pytest-env
-prefect-aws
-s3fs

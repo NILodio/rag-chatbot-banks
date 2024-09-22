@@ -8,7 +8,7 @@ from prefect_aws.ecs import AwsCredentials, ECSTask
 
 ecs = ECSTask(
     aws_credentials=AwsCredentials.load("prod"),
-    image="danilo/prefect-s3:latest",  # example image
+    image="daniloprefect/prefect-s3:latest",  # example image
     cpu="256",
     memory="512",
     stream_output=True,

@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-with open("requirements.txt") as install_requires_file:
+with open("requirements/requirements.txt") as install_requires_file:
     requirements = install_requires_file.read().strip().split("\n")
 
 setup(
@@ -13,7 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     version="1.0",
     packages=find_packages(exclude=["tests"]),
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=requirements,
     classifiers=[
         "Natural Language :: English",
