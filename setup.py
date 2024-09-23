@@ -13,7 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     version="1.0",
     packages=find_packages(exclude=["tests"]),
-    python_requires=">=3.9",
+    python_requires=">=3.8",
     install_requires=requirements,
     classifiers=[
         "Natural Language :: English",
