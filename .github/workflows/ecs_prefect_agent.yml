@@ -192,7 +192,7 @@ jobs:
           aws_creds = AwsCredentials(aws_access_key_id=id_, aws_secret_access_key=key_)
           aws_creds.save(block_, overwrite=True)
           
-          s3 = S3Bucket(bucket_name=path_, aws_access_key_id=id_, aws_secret_access_key=key_)
+          s3 = S3Bucket(bucket_name=path_, aws_credentials=aws_creds)
           s3.save(block_, overwrite=True)
           
           ecs = ECSTask(
