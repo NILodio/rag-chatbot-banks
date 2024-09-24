@@ -1,0 +1,32 @@
+name: pull_request rules
+
+on:
+  pull_request
+
+jobs:
+  check:
+
+    - name: checkout repository
+      uses: actions/checkout@v3
+
+    - name: enforce PR title
+      run: |
+        rexp = ^[A-Z]{2,3}_w-[\d+]{1,2}.\w+;
+        prTitle = context.payload.pull_request.title;
+        if(!prTitle =~ rexp){
+            core.setFailed(
+              `pull request does not follow the title convetion`);
+            echo 'PR title does not follow the convection rules-> initials_w-weeknumber.featurename';
+            return;
+          }
+    
+    - name: branch up-to-date rule
+      run: |
+        git fetch origin
+        devBranch = context.payload.pull_request.base.ref;
+        requestedBranch = devBranch = context.payload.pull_request.head.ref;
+        if(devBranch != requestedBranch){
+            core.setFailed(
+              `requested branch is not up-to-date`);
+            return;
+          }
