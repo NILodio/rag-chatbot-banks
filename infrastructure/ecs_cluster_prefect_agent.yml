@@ -170,7 +170,7 @@ Resources:
             - Name: AWS_MAX_ATTEMPTS
               Value: 10
           Command:
-            - !Sub "prefect agent start -q ${project}"
+            - !Sub "prefect worker start --pool ${worker} --type ecs"
           LogConfiguration:
             LogDriver: awslogs
             Options:

@@ -28,6 +28,10 @@ on:
         required: true
         default: '2.*'
         type: string
+      prfect-worker:
+        description: Prefect worker
+        required: true
+        default: 'my-ecs-pool'
       aws-region:
         description: AWS Region
         required: true
@@ -40,11 +44,42 @@ env:
   BLOCK: ${{ github.event.inputs.block_name }}
   AWS_REGION: ${{ github.event.inputs.aws-region }}
   PREFECT_VERSION: ${{ github.event.inputs.prefect-version }}
+  PREFECT_WORKER: ${{ github.event.inputs.prefect-worker }}
   BUCKET: ${{ github.event.inputs.s3_path }}
 
+
 jobs:
+  worker-prefect:
+    name: Prefect Worker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+
+      - name: Python dependencies
+        run: |
+          pip install prefect==$PREFECT_VERSION
+          pip install .
+
+      - name: Prefect Cloud login
+        run: |
+          prefect config set PREFECT_API_KEY=${{ secrets.PREFECT_API_KEY }}
+          prefect config set PREFECT_API_URL=${{ secrets.PREFECT_API_URL }}
+
+      - name: Prefect Worker
+        run: prefect work-pool create --type ecs $PREFECT_WORKER --overwrite
+
+      - name: Prefect Worker finished
+        run: echo "Prefect Worker $PREFECT_WORKER created at $(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+
   ecr-repo:
     name: ECR Repo & Image
+    needs: worker-prefect
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.build-image.outputs.image }}
@@ -121,7 +156,7 @@ jobs:
           name: ${{ env.PROJECT }}
           template: infrastructure/ecs_cluster_prefect_agent.yml
           capabilities: CAPABILITY_NAMED_IAM
-          parameter-overrides: "cpu=${{ github.event.inputs.cpu }},memory=${{ github.event.inputs.memory }},project=${{ env.PROJECT }},cluster=${{ env.ECS_CLUSTER }},image=${{ needs.ecr-repo.outputs.image }},awsaccountid=${{steps.aws.outputs.accountid}},region=${{ env.AWS_REGION }}"
+          parameter-overrides: "cpu=${{ github.event.inputs.cpu }},memory=${{ github.event.inputs.memory }},project=${{ env.PROJECT }},worker=${{ env.PREFECT_WORKER }},cluster=${{ env.ECS_CLUSTER }},image=${{ needs.ecr-repo.outputs.image }},awsaccountid=${{steps.aws.outputs.accountid}},region=${{ env.AWS_REGION }}"
 
       - name: ECS Service Deployment finished
         run: echo "ECS Service Deployment finished at $(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_STEP_SUMMARY
@@ -138,127 +173,3 @@ jobs:
 
       - name: Summary
         run: echo 'AWS ECS agent successfully deployed and ready to run your flows! :rocket:' >> $GITHUB_STEP_SUMMARY
-
-  blocks:
-    name: Prefect Blocks & S3 Upload
-    runs-on: ubuntu-latest
-    needs: ecr-repo
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-
-      - name: Python dependencies
-        run: |
-          pip install prefect==$PREFECT_VERSION
-          pip install .
-          prefect block register -m prefect_aws
-
-      - name: Prefect Cloud login
-        run: |
-          prefect config set PREFECT_API_KEY=${{ secrets.PREFECT_API_KEY }}
-          prefect config set PREFECT_API_URL=${{ secrets.PREFECT_API_URL }}
-
-      - name: AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-          mask-aws-account-id: 'no'
-
-      - name: Create Blocks & Upload to S3
-        id: aws_ecs_ecs_blocks
-        run: |
-          export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-          cat <<EOF > aws_ecs_blocks.py
-          from prefect_aws import AwsCredentials, S3Bucket, ECSTask
-          
-          id_ = "${{ secrets.AWS_ACCESS_KEY_ID }}"
-          key_ = "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-          path_ = "${{ github.event.inputs.s3_path }}"
-          img_ = "${{ needs.ecr-repo.outputs.image }}"
-          block_ = "$BLOCK"
-          cluster_ = "${{ env.ECS_CLUSTER }}"
-          cpu_ = "${{ github.event.inputs.cpu }}"
-          memory_ = "${{ github.event.inputs.memory }}"
-          aws_acc_id = "$AWS_ACCOUNT_ID"
-          exec_role = f"arn:aws:iam::{aws_acc_id}:role/$PROJECT_ecs_execution_role"
-          task_role = f"arn:aws:iam::{aws_acc_id}:role/$PROJECT_ecs_task_role"
-          
-          aws_creds = AwsCredentials(aws_access_key_id=id_, aws_secret_access_key=key_)
-          aws_creds.save(block_, overwrite=True)
-          
-          s3 = S3Bucket(bucket_name=path_, aws_credentials=aws_creds)
-          s3.save(block_, overwrite=True)
-          
-          ecs = ECSTask(
-              aws_credentials=aws_creds,
-              image=img_,
-              cpu=cpu_,
-              memory=memory_,
-              stream_output=True,
-              configure_cloudwatch_logs=True,
-              cluster=cluster_,
-              execution_role_arn=exec_role,
-              task_role_arn=task_role,
-          )
-          ecs.save(block_, overwrite=True)
-          EOF
-          python aws_ecs_blocks.py
-      - name: Blocks creation finished
-        run: echo "AWS and ECS blocks built at $(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload to S3 - maintenance flow
-        id: maintenance
-        run: prefect deploy --all --prefect-file prefect.yaml
-
-  list-flows:
-    name: List Prefect flows
-    runs-on: ubuntu-latest
-    needs: blocks
-    outputs:
-      prefect_flows: ${{ steps.set-matrix.outputs.prefect_flows }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-      - id: set-matrix
-        run: echo "prefect_flows=$(ls flows/*.py | jq -R -s -c 'split("\n")[:-1]')" >> $GITHUB_OUTPUT
-
-  deploy:
-    name: Deploy
-    needs: list-flows
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        flows: ${{ fromJson(needs.list-flows.outputs.prefect_flows) }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-
-      - name: Python dependencies
-        run: |
-          pip install prefect==$PREFECT_VERSION
-          pip install .
-
-      - name: Prefect Cloud login
-        run: |
-          prefect config set PREFECT_API_KEY=${{ secrets.PREFECT_API_KEY }} 
-          prefect config set PREFECT_API_URL=${{ secrets.PREFECT_API_URL }}
-
-      - name: AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1-node16
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-          mask-aws-account-id: 'no'
