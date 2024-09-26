@@ -14,4 +14,4 @@ RUN pip install .
 RUN pip freeze
 
 # Register blocks
-RUN prefect block register -m prefect_aws.ecs
+RUN prefect block register -m prefect_aws

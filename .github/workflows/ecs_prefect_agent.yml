@@ -40,6 +40,7 @@ env:
   BLOCK: ${{ github.event.inputs.block_name }}
   AWS_REGION: ${{ github.event.inputs.aws-region }}
   PREFECT_VERSION: ${{ github.event.inputs.prefect-version }}
+  BUCKET: ${{ github.event.inputs.s3_path }}
 
 jobs:
   ecr-repo:
@@ -155,7 +156,7 @@ jobs:
         run: |
           pip install prefect==$PREFECT_VERSION
           pip install .
-          prefect block register -m prefect_aws.ecs
+          prefect block register -m prefect_aws
 
       - name: Prefect Cloud login
         run: |
@@ -175,8 +176,7 @@ jobs:
         run: |
           export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
           cat <<EOF > aws_ecs_blocks.py
-          from prefect.filesystems import S3
-          from prefect_aws.ecs import ECSTask, AwsCredentials
+          from prefect_aws import AwsCredentials, S3Bucket, ECSTask
           
           id_ = "${{ secrets.AWS_ACCESS_KEY_ID }}"
           key_ = "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
@@ -193,7 +193,7 @@ jobs:
           aws_creds = AwsCredentials(aws_access_key_id=id_, aws_secret_access_key=key_)
           aws_creds.save(block_, overwrite=True)
           
-          s3 = S3(bucket_path=path_, aws_access_key_id=id_, aws_secret_access_key=key_)
+          s3 = S3Bucket(bucket_name=path_, aws_credentials=aws_creds)
           s3.save(block_, overwrite=True)
           
           ecs = ECSTask(
@@ -215,7 +215,7 @@ jobs:
 
       - name: Upload to S3 - maintenance flow
         id: maintenance
-        run: prefect deployment build utilities/maintenance.py:maintenance -n $PROJECT -sb s3/$BLOCK -q $PROJECT -v $GITHUB_SHA -a -t maintenance --interval 10
+        run: prefect deploy --all --prefect-file prefect.yaml
 
   list-flows:
     name: List Prefect flows
@@ -228,8 +228,6 @@ jobs:
         uses: actions/checkout@v3
       - id: set-matrix
         run: echo "prefect_flows=$(ls flows/*.py | jq -R -s -c 'split("\n")[:-1]')" >> $GITHUB_OUTPUT
-        # todo may need to remove double str in "\n"
-#        run: echo "::set-output name=prefect_flows::$(ls flows/*.py | jq -R -s -c 'split("\n")[:-1]')"
 
   deploy:
     name: Deploy
@@ -264,18 +262,3 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
           mask-aws-account-id: 'no'
-
-      - name: Deploy flows to S3
-        id: build
-        run: |
-          FLOW_NAME=$(basename ${{ matrix.flows }} .py)
-          prefect deployment build ${{ matrix.flows }}:$FLOW_NAME -sb s3/$BLOCK -q $PROJECT -v $GITHUB_SHA -a -t $PROJECT -n $PROJECT -o $FLOW_NAME.yaml -ib ecs-task/$BLOCK --skip-upload
-          prefect deployment build ${{ matrix.flows }}:$FLOW_NAME -sb s3/$BLOCK -q $PROJECT -v $GITHUB_SHA -a -t $PROJECT -n $PROJECT-local --skip-upload
-          echo "flow_manifest=$FLOW_NAME.yaml" >> $GITHUB_OUTPUT
-#          echo ::set-output name=flow_manifest::$FLOW_NAME.yaml
-
-      - name: Upload YAML deployment manifest as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: Deployment YAML manifests
-          path: ${{ steps.build.outputs.flow_manifest }}
