@@ -71,11 +71,23 @@ jobs:
           prefect config set PREFECT_API_KEY=${{ secrets.PREFECT_API_KEY }}
           prefect config set PREFECT_API_URL=${{ secrets.PREFECT_API_URL }}
 
+      - name: Debug
+        run: echo "Prefect Worker: ${{ env.PREFECT_WORKER }}"
+
+      - name: Print Inputs
+        run: |
+          echo "Block Name: ${{ github.event.inputs.block_name }}"
+          echo "AWS Region: ${{ github.event.inputs.aws-region }}"
+          echo "Prefect Version: ${{ github.event.inputs.prefect-version }}"
+          echo "Prefect Worker: ${{ github.event.inputs.prefect-worker }}"
+          echo "S3 Path: ${{ github.event.inputs.s3_path }}"
+
       - name: Prefect Worker
-        run: prefect work-pool create --type ecs $PREFECT_WORKER --overwrite
+        run: |
+          prefect work-pool create ${{ env.PREFECT_WORKER }} --type ecs --overwrite
 
       - name: Prefect Worker finished
-        run: echo "Prefect Worker $PREFECT_WORKER created at $(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_STEP_SUMMARY
+        run: echo "Prefect Worker ${{ env.PREFECT_WORKER }} created at $(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_STEP_SUMMARY
 
   ecr-repo:
     name: ECR Repo & Image
