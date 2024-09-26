@@ -72,7 +72,7 @@ jobs:
           prefect config set PREFECT_API_URL=${{ secrets.PREFECT_API_URL }}
 
       - name: Prefect Worker
-        run: prefect work-pool create --type ecs $PREFECT_WORKER --overwrite
+        run: prefect work-pool create $PREFECT_WORKER --type ecs --overwrite
 
       - name: Prefect Worker finished
         run: echo "Prefect Worker $PREFECT_WORKER created at $(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_STEP_SUMMARY
