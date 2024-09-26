@@ -28,7 +28,11 @@ on:
         required: true
         default: '2.*'
         type: string
+<<<<<<< HEAD
       prefect-worker:
+=======
+      prfect-worker:
+>>>>>>> d813bdb (ECR Running)
         description: Prefect worker
         required: true
         default: 'my-ecs-pool'
