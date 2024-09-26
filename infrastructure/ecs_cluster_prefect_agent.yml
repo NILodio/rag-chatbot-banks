@@ -39,6 +39,10 @@ Parameters:
     Type: String
     Description: Docker image for the service
     Default: prefecthq/prefect:2-python3.9
+  worker:
+    Type: String
+    Description: Prefect worker
+    Default: my-ecs-pool
 
 Resources:
   PrefectFargateCluster:
@@ -110,41 +114,14 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - ssm:GetParameters
-                  - logs:CreateLogStream
-                  - logs:CreateLogGroup
-                  - logs:PutLogEvents
+                  - ssm:*
+                  - s3:*
+                  - ecs:*
+                  - ec2:*
+                  - logs:*
                 Resource: "*"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
-
-  TaskRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub "${project}_ecs_task_role"
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ecs-tasks.amazonaws.com
-            Action: sts:AssumeRole
-      Policies:
-        - PolicyName: PrefectS3Storage
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:*
-                  - ecs:RegisterTaskDefinition
-                  - ecs:DeregisterTaskDefinition
-                  - ecs:DescribeTasks
-                  - ecs:RunTask
-                  - logs:GetLogEvents
-                  - ec2:DescribeSubnets
-                  - ec2:DescribeVpcs
-                Resource: "*"
 
   PrefectTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -154,7 +131,7 @@ Resources:
       Memory: !Ref memory
       NetworkMode: awsvpc
       ExecutionRoleArn: !Ref ExecutionRole
-      TaskRoleArn: !Ref TaskRole
+      TaskRoleArn: !Ref ExecutionRole
       ContainerDefinitions:
         - Name: !Ref project
           Image: !Ref image
