@@ -71,9 +71,6 @@ jobs:
           prefect config set PREFECT_API_KEY=${{ secrets.PREFECT_API_KEY }}
           prefect config set PREFECT_API_URL=${{ secrets.PREFECT_API_URL }}
 
-      - name: Debug
-        run: echo "Prefect Worker: ${{ env.PREFECT_WORKER }}"
-
       - name: Print Inputs
         run: |
           echo "Block Name: ${{ github.event.inputs.block_name }}"
