@@ -5,12 +5,14 @@ on:
 
 jobs:
   check:
+    
+    name: checkout repository
+    runs-on: ubuntu-latest
+    - uses: actions/checkout@v3
 
-    - name: checkout repository
-      uses: actions/checkout@v3
-
-    - name: enforce PR title
-      run: |
+    name: enforce PR title
+    runs-on: ubuntu-latest
+    - run: |
         rexp = ^[A-Z]{2,3}_w-[\d+]{1,2}.\w+;
         prTitle = context.payload.pull_request.title;
         if(!prTitle =~ rexp){
@@ -20,8 +22,9 @@ jobs:
             return;
           }
     
-    - name: branch up-to-date rule
-      run: |
+    name: branch up-to-date rule
+    runs-on: ubuntu-latest
+    - run: |
         git fetch origin
         devBranch = context.payload.pull_request.base.ref;
         requestedBranch = devBranch = context.payload.pull_request.head.ref;
