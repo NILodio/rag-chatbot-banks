@@ -132,3 +132,7 @@ dmypy.json
 .tmp/
 deploy/
 *.yaml
+
+terraform.*
+env
+.terraform*
