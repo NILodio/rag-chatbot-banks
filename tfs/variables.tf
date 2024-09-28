@@ -52,7 +52,7 @@ variable "worker_memory" {
 
 variable "worker_poll_name" {
   description = "Prefect cloud poll name"
-  default     = "test-poll"
+  default     = "rag-chatbot-banks-poll"
   type        = string
 }
 
@@ -69,7 +69,7 @@ variable "worker_task_role_arn" {
 
 variable "name" {
   description = "Unique name for this worker deployment"
-  default     = "deployment-worker-test-2"
+  default     = "rag-chatbot-banks-worker-test-2"
   type        = string
 }
 
