@@ -28,7 +28,7 @@ on:
         required: true
         default: '2.*'
         type: string
-      prfect-worker:
+      prefect-worker:
         description: Prefect worker
         required: true
         default: 'my-ecs-pool'
