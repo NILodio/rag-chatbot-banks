@@ -17,3 +17,7 @@ output "prefect_worker_security_group" {
 output "prefect_worker_cluster_name" {
   value = aws_ecs_cluster.prefect_worker_cluster.name
 }
+
+output "docker_image_name" {
+  value = docker_image.docker_image_prefect.name
+}

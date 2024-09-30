@@ -27,6 +27,8 @@ format:
 .PHONY: install
 install:
 	python -m pip install --editable .
+	python -m pip install -U -r requirements/requirements.dev.txt --index-url https://elasticpypi:lMExlbachG9cYswBVxE1ZyieW7VMjdgxPJGBvbJtnjvsloMK@4erpxjkulc.execute-api.us-east-1.amazonaws.com/prod/simple/ --extra-index-url https://pypi.org/simple/
+	
 
 .PHONY: develop
 develop: install

@@ -114,14 +114,48 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - ssm:*
-                  - s3:*
-                  - ecs:*
-                  - ec2:*
-                  - logs:*
+                  - ssm:GetParameters
+                  - logs:CreateLogStream
+                  - logs:CreateLogGroup
+                  - logs:PutLogEvents
                 Resource: "*"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${project}_ecs_task_role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PrefectS3Storage
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:*
+                  - ecs:RegisterTaskDefinition
+                  - ecs:DeregisterTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:DescribeTaskDefinition
+                  - ecs:RunTask
+                  - ecs:TagResource
+                  - logs:GetLogEvents
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcs
+                  - iam:PassRole
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:GetAuthorizationToken
+                  - ecr:GetDownloadUrlForLayer
+                Resource: "*"
 
   PrefectTaskDefinition:
     Type: AWS::ECS::TaskDefinition
@@ -131,7 +165,7 @@ Resources:
       Memory: !Ref memory
       NetworkMode: awsvpc
       ExecutionRoleArn: !Ref ExecutionRole
-      TaskRoleArn: !Ref ExecutionRole
+      TaskRoleArn: !Ref TaskRole
       ContainerDefinitions:
         - Name: !Ref project
           Image: !Ref image

@@ -3,6 +3,7 @@ build
 black
 ruff
 isort
+pre-commit
 mypy
 pytest
 coveralls

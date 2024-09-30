@@ -7,6 +7,10 @@ terraform {
       prefect = {
         source = "prefecthq/prefect"
       }
+      docker = {
+        source  = "kreuzwerker/docker"
+        version = "~> 3.0.0"
+      }
     }
 }
 
@@ -25,12 +29,40 @@ provider "aws" {
 data "aws_region" "current" {}
 
 resource "aws_secretsmanager_secret" "prefect_api_key" {
-  name = "prefect-api-key-${var.name}"
+  name = "prefect-api-key-${var.name}-${var.stage}"
+  force_overwrite_replica_secret = true
 }
 
 resource "aws_secretsmanager_secret_version" "prefect_api_key_version" {
   secret_id     = aws_secretsmanager_secret.prefect_api_key.id
   secret_string = var.prefect_api_key
+}
+
+resource "aws_ecr_repository" "ecr_repository" {
+  name = "${var.name}-${var.stage}"
+}
+
+data "aws_ecr_authorization_token" "token" {}
+
+provider "docker" {
+  registry_auth {
+    address  = data.aws_ecr_authorization_token.token.proxy_endpoint
+    username = data.aws_ecr_authorization_token.token.user_name
+    password = data.aws_ecr_authorization_token.token.password
+  }
+}
+
+resource "docker_image" "docker_image_prefect" {
+  name = "${aws_ecr_repository.ecr_repository.repository_url}:latest"
+  build {
+    context    = "${path.module}/.."
+    dockerfile = "Dockerfile"
+  }
+}
+
+resource "docker_registry_image" "docker_registry_image_prefect" {
+  name = docker_image.docker_image_prefect.name
+  keep_remotely = true
 }
 
 resource "aws_iam_role" "prefect_worker_execution_role" {

@@ -1,5 +1,5 @@
 resource "aws_security_group" "prefect_worker" {
-  name        = "prefect-worker-sg-${var.name}"
+  name        = "prefect-worker-sg-${var.name}-${var.stage}"
   description = "ECS Prefect worker"
   vpc_id      = var.vpc_id
 }

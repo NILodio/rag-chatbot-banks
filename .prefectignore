@@ -141,6 +141,7 @@ dmypy.json
 .idea/
 .tmp/
 .github/
+.git
 blocks/
 deploy/
 deploy_cli/
@@ -154,5 +155,12 @@ setup.py
 task-definition.json
 *.md
 *.txt
+.pylintrc
 *.yaml
 *.bash
+dataflowops/
+Makefile
+notebooks/
+pyproject.toml
+src/
+terraform/
