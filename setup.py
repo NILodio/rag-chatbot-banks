@@ -4,7 +4,7 @@ with open("requirements/requirements.txt") as install_requires_file:
     requirements = install_requires_file.read().strip().split("\n")
 
 setup(
-    name="dataflowops",
+    name="rag-chatbot-banks",
     description="Rag Chatbot",
     license="Apache License 2.0",
     author="Prefect Community",
@@ -13,7 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     version="1.0",
     packages=find_packages(exclude=["tests"]),
-    python_requires=">=3.8",
+    python_requires=">=3.12",
     install_requires=requirements,
     classifiers=[
         "Natural Language :: English",
@@ -21,9 +21,7 @@ setup(
         "Intended Audience :: System Administrators",
         "License :: OSI Approved :: Apache Software License",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.12",
         "Topic :: Software Development :: Libraries",
     ],
 )

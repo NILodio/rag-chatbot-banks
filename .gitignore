@@ -136,3 +136,7 @@ deploy/
 terraform.*
 env
 .terraform*
+
+.github
+data
+Not
