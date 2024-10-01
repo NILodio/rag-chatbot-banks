@@ -3,6 +3,11 @@ name: 1 Initial - ECS Prefect agent
 on:
   workflow_dispatch:
     inputs:
+      project:
+        description: name of the project
+        required: true
+        default: 'rag-chatbot-banks'
+        type: string
       cpu:
         description: CPU for the agent
         required: true
@@ -26,7 +31,7 @@ on:
       prefect-version:
         description: Prefect version for flows
         required: true
-        default: '2.*'
+        default: '2.20.8'
         type: string
       prefect-worker:
         description: Prefect worker
@@ -39,8 +44,8 @@ on:
         type: string
 
 env:
-  PROJECT: dataflowops
-  ECS_CLUSTER: dataflowops
+  PROJECT: ${{ github.event.inputs.project }}
+  ECS_CLUSTER: ${{ github.event.inputs.project }}-ecs-cluster
   BLOCK: ${{ github.event.inputs.block_name }}
   AWS_REGION: ${{ github.event.inputs.aws-region }}
   PREFECT_VERSION: ${{ github.event.inputs.prefect-version }}
@@ -56,10 +61,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Set up Python 3.9
+      - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: 3.12
 
       - name: Python dependencies
         run: |

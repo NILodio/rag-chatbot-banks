@@ -34,7 +34,7 @@ variable "worker_extra_pip_packages" {
 
 variable "worker_image" {
   description = "Container image for the worker. This could be the name of an image in a public repo or an ECR ARN"
-  default     = "prefecthq/prefect:3-python3.9"
+  default     = "prefecthq/prefect:2-latest"
   type        = string
 }
 
@@ -50,9 +50,9 @@ variable "worker_memory" {
   type        = number
 }
 
-variable "worker_poll_name" {
-  description = "Prefect cloud poll name"
-  default     = "rag-chatbot-banks-poll"
+variable "worker_pool_name" {
+  description = "Prefect cloud queue name"
+  default     = "rag-chatbot-worker-poll"
   type        = string
 }
 
@@ -69,7 +69,13 @@ variable "worker_task_role_arn" {
 
 variable "name" {
   description = "Unique name for this worker deployment"
-  default     = "rag-chatbot-banks-worker-test-2"
+  default     = "rag-chatbot"
+  type        = string
+}
+
+variable "stage" {
+  description = "Stage of the deployment"
+  default     = "da"
   type        = string
 }
 
@@ -96,6 +102,6 @@ variable "vpc_id" {
 
 variable "bucket_name" {
   description = "S3 bucket"
-  default     = "rag-chatbot-banks"
+  default     = "rag-chatbot-banks-flows"
   type        = string
 }

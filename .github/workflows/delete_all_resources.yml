@@ -8,8 +8,13 @@ on:
         required: true
         default: 'us-east-1'
         type: string
+      project:
+        description: name of the project
+        required: true
+        default: 'rag-chatbot-banks'
+        type: string
 env:
-  PROJECT: dataflowops
+  PROJECT: ${{ github.event.inputs.project }}
   AWS_REGION: ${{ github.event.inputs.aws-region }}
 
 jobs:
