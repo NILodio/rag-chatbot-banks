@@ -1,2 +1,2 @@
 s3fs==2024.9.0
-prefect[aws]<3
+prefect[aws]==2.20.8

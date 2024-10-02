@@ -3,6 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
+# j untracking files which caused merge issue
+
+jenv/
+
 # C extensions
 *.so
 
