@@ -4,7 +4,6 @@ import requests
 import re
 import os
 import random
-import prefect
 from prefect import flow, get_run_logger, task
 
 
@@ -130,36 +129,37 @@ def download_pdfs_from_url_recursive(url, save_path, remaining_levels, original_
             logger.info("..." * (depth_level-1) + f"Depth Level {depth_level} -> {i + 1}/{len(other_urls)} URLs -> Source: {url_inside}")
 
 @flow
-def download_pdfs_from_source_txt():
+def download_pdfs_from_source_txt(source_path:str,save_path:str,levels:int,print_details:bool):
     # TEMP PARAMS ######################
-    source_path = "data/source.txt"
-    save_path ="data"
-    levels = 0
-    print_details = True
+    
     #####################################
 
     # Set proper a path for the source txt and the saving path
-    proper_source_path = Path(source_path)
-    proper_save_path = Path(save_path)
-
-    # Open the txt file that contains all URLs to explore
-    source_txt = open(proper_source_path, "r")
     
-    # Loop through the URLs, downloading the pdfs >=0 levels deep
-    for i, line in enumerate(source_txt):
-        link = line.strip()
+    proper_save_path = save_path
+    if source_path.startswith('http'):
+        download_pdfs_from_url_recursive(source_path, proper_save_path, remaining_levels=levels, original_levels=levels, unique_pdfs=set(), print_details=print_details)
+    else:
+        proper_source_path = Path(source_path)
+
+        # Open the txt file that contains all URLs to explore
+        source_txt = open(proper_source_path, "r")
         
-        # Print details if required
-        if print_details:
-            logger = get_run_logger()
-            logger.info(f"Extracting Main Source #{i+1}: {link}")
+        # Loop through the URLs, downloading the pdfs >=0 levels deep
+        for i, line in enumerate(source_txt):
+            link = line.strip()
+            
+            # Print details if required
+            if print_details:
+                logger = get_run_logger()
+                logger.info(f"Extracting Main Source #{i+1}: {link}")
 
-        # Download all PDF files from each URL >=0 levels deep, into a specific folder for this URL only
-        source_save_path = Path(proper_save_path, str(i+1))
-        download_pdfs_from_url_recursive(link, source_save_path, remaining_levels=levels, original_levels=levels, unique_pdfs=set(), print_details=print_details)
-    
-    # Close the txt file
-    source_txt.close()
+            # Download all PDF files from each URL >=0 levels deep, into a specific folder for this URL only
+            source_save_path = Path(proper_save_path, str(i+1))
+            download_pdfs_from_url_recursive(link, source_save_path, remaining_levels=levels, original_levels=levels, unique_pdfs=set(), print_details=print_details)
+        
+        # Close the txt file
+        source_txt.close()
 
 if __name__ == "__main__":
     pass
