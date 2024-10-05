@@ -8,3 +8,6 @@ mypy
 pytest
 coveralls
 pytest-cov
+beautifulsoup4==4.12.3
+prefect==2.20.8
+Requests==2.32.3
