@@ -4,9 +4,9 @@ import requests
 import re
 import os
 import random
-import prefect
 from prefect import flow, get_run_logger, task
-
+import boto3
+from io import BytesIO
 
 def get_base_url(url):
     # Extract the base url: protocol, subdomain, and domain
@@ -67,7 +67,8 @@ def get_urls(url):
     return {href for href in hrefs if href.startswith(base_url) and not href.endswith('.pdf')}
 
 @task
-def download_pdfs(urls, save_path, print_details=False):
+def download_pdfs(bucket_name,urls, save_path, print_details=False):
+    client = boto3.client('s3')
     # Create/Save path where to store all PDFs
     path = Path(save_path)
     path.mkdir(parents=True, exist_ok=True)
@@ -81,7 +82,6 @@ def download_pdfs(urls, save_path, print_details=False):
         # Set up a new name by appending a random number to the original name (this avoids name duplication)
         rand_num = str(random.randrange(100000,199999))
         new_filename = original_filename[:-4] + '_' + rand_num + original_filename[-4:]
-        file = Path(new_filename)
 
         # Start downloading the PDF, stop processing if the request wasn't successful
         logger = get_run_logger()
@@ -96,13 +96,12 @@ def download_pdfs(urls, save_path, print_details=False):
             continue
         
         # If the file content was retrieved successfully, then write & save the new PDF file
-        with open(path.joinpath(file), 'wb') as f:
-            f.write(r.content)
+        client.upload_fileobj(r.raw,bucket_name,save_path+'/'+new_filename)
         if print_details:
             logger.info("Successful... " + new_filename)
 
 @flow
-def download_pdfs_from_url_recursive(url, save_path, remaining_levels, original_levels, unique_pdfs, print_details=False):
+def download_pdfs_from_url_recursive(url, bucket_name,save_path, remaining_levels, original_levels, unique_pdfs, print_details=False):
     # Get all PDF URLs and work only with the ones not previously found
     pdf_urls = get_pdf_urls(url)
     pdf_urls = [f for f in pdf_urls if f not in unique_pdfs]
@@ -114,7 +113,7 @@ def download_pdfs_from_url_recursive(url, save_path, remaining_levels, original_
         logger.info( f"Depth Level 0 (Main Source) -> {len(pdf_urls)} PDFs found -> Source: {url}")
     
     # Download PDFs
-    download_pdfs(pdf_urls, save_path, print_details)
+    download_pdfs(bucket_name,pdf_urls, save_path, print_details)
     
     # If there's no remaining levels to dive, stop processing
     if remaining_levels == 0:
@@ -124,42 +123,45 @@ def download_pdfs_from_url_recursive(url, save_path, remaining_levels, original_
     remaining_levels -= 1
     other_urls = get_urls(url)
     for i, url_inside in enumerate(other_urls):
-        download_pdfs_from_url_recursive(url_inside, save_path, remaining_levels, original_levels, unique_pdfs, print_details)
+        download_pdfs_from_url_recursive(url_inside, bucket_name,save_path, remaining_levels, original_levels, unique_pdfs, print_details)
         depth_level = original_levels - remaining_levels
         if print_details:
             logger.info("..." * (depth_level-1) + f"Depth Level {depth_level} -> {i + 1}/{len(other_urls)} URLs -> Source: {url_inside}")
 
 @flow
-def download_pdfs_from_source_txt():
-    # TEMP PARAMS ######################
-    source_path = "data/source.txt"
-    save_path ="data"
-    levels = 0
-    print_details = True
+def download_pdfs_from_source_txt(bucket_name:str,source_path:str,save_path:str,levels:int,print_details:bool):
+    # INIIALIZE S3 CLIENT ######################
+    client = boto3.client('s3')
     #####################################
 
-    # Set proper a path for the source txt and the saving path
-    proper_source_path = Path(source_path)
-    proper_save_path = Path(save_path)
-
-    # Open the txt file that contains all URLs to explore
-    source_txt = open(proper_source_path, "r")
-    
-    # Loop through the URLs, downloading the pdfs >=0 levels deep
-    for i, line in enumerate(source_txt):
-        link = line.strip()
+    if source_path.startswith('http'):
+        download_pdfs_from_url_recursive(source_path,bucket_name, save_path, remaining_levels=levels, original_levels=levels, unique_pdfs=set(), print_details=print_details)
+    else:
+        # Reading file form S3 Bucket
+        response = client.get_object(Bucket = bucket_name, Key = source_path )
+        data = response['Body'].read()
         
-        # Print details if required
-        if print_details:
-            logger = get_run_logger()
-            logger.info(f"Extracting Main Source #{i+1}: {link}")
+            # Use BytesIO to handle the bytes
+        with BytesIO(data) as bio:
+            # Decode bytes to string
+            content = bio.getvalue().decode('utf-8')  # Decode bytes to string
+            
+            # Split the content into lines (links)
+            links = content.splitlines()
 
-        # Download all PDF files from each URL >=0 levels deep, into a specific folder for this URL only
-        source_save_path = Path(proper_save_path, str(i+1))
-        download_pdfs_from_url_recursive(link, source_save_path, remaining_levels=levels, original_levels=levels, unique_pdfs=set(), print_details=print_details)
-    
-    # Close the txt file
-    source_txt.close()
+        # Loop through the URLs, downloading the pdfs >=0 levels deep
+        for i, line in enumerate(links):
+            link = line.strip()
+            
+            # Print details if required
+            if print_details:
+                logger = get_run_logger()
+                logger.info(f"Extracting Main Source #{i+1}: {link}")
+
+            # Download all PDF files from each URL >=0 levels deep, into a specific folder for this URL only
+            source_save_path = Path(save_path, str(i+1))
+            download_pdfs_from_url_recursive(link, bucket_name,source_save_path, remaining_levels=levels, original_levels=levels, unique_pdfs=set(), print_details=print_details)
+        
 
 if __name__ == "__main__":
     pass
