@@ -1,64 +1,93 @@
+import io
 import os
 import uuid
-from datetime import timedelta
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from prefect import flow, get_run_logger, task
-from prefect.tasks import task_input_hash
-from prefect_aws import AwsCredentials, S3Bucket
+from prefect_aws import S3Bucket
 from utils import get_base_url
 
 load_dotenv()
 
 block_s3_bucket = os.getenv("PREFECT_BLOCK_S3_BUCKET")
-s3_bucket_name = os.getenv("AWS_BUCKET_NAME")
-
-aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-aws_session_token = os.getenv("AWS_SESSION_TOKEN")
-region_name = os.getenv("AWS_REGION")
-block_name_aws = os.getenv("PREFECT_BLOCK_AWS_CREDENTIALS")
-aws_credentials_block = AwsCredentials.load(block_name_aws)
-
-
 s3_bucket = S3Bucket.load(block_s3_bucket)
 
 
 @task
-def fetch_urls_from_s3(path_s3: str, path: str, file: str = "url.txt") -> list[str]:
-    s3_bucket.download_object_to_path(path_s3, os.path.join(path, file))
-    with open(os.path.join(path, file)) as f:
-        return list(map(str.strip, f.readlines()))
+def fetch_urls_from_s3(file: str = "data/source.txt") -> list[str]:
+    """Reads the content of a file from S3 and returns it as a list of strings."""
+    logger = get_run_logger()
+    logger.info(f"Reading file from S3: {file}")
+
+    try:
+        content = s3_bucket.read_path(file)
+        logger.info(f"Successfully read {len(content)} bytes from S3.")
+        content_str = content.decode("utf-8")
+        return (
+            content_str.splitlines()
+        )  # Return a list of strings, each representing a line
+    except Exception as e:
+        logger.error(f"Error reading file from S3: {e}")
+        return []
 
 
-@task(cache_key_fn=task_input_hash, cache_expiration=timedelta(days=1))
-def get_urls(url):
-    # Extract the base url: protocol + subdomain + domain
+@task
+def put_data_to_s3(data: bytes, s3_key: str) -> None:
+    logger = get_run_logger()
+    logger.info(f"Uploading data to S3: {s3_key}")
+    file_obj = io.BytesIO(data)
+    try:
+        s3_bucket.upload_from_file_object(file_obj, s3_key)
+        logger.info(f"Successfully uploaded data to s3://{block_s3_bucket}/{s3_key}")
+    except Exception as e:
+        logger.error(f"Error uploading to S3: {e}")
+
+
+@task
+def get_pdf_urls(url):
     base_url = get_base_url(url)
+    logger = get_run_logger()
 
-    # Stop processing if the request wasn't successful
     try:
         r = requests.get(url)
-    except requests.RequestException:
-        logger = get_run_logger()
-        logger.info("Error requesting URL... " + url)
-        return
-    if r.status_code != 200:
+        r.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"Error fetching PDF URLs from {url}: {e}")
         return set()
 
-    # Extract all a-tags from the website HTML
-    bs = BeautifulSoup(r.content)
+    bs = BeautifulSoup(r.content, "html.parser")
     a_tags = bs.findAll("a")
 
-    # Extract content of href attribute from the a-tags
-    # and convert them into proper URLs using the base url
+    hrefs = [
+        tag.attrs["href"]
+        for tag in a_tags
+        if "href" in tag.attrs.keys() and tag.attrs["href"].endswith(".pdf")
+    ]
+
+    return {href if href.startswith("http") else base_url + href for href in hrefs}
+
+
+@task
+def get_urls(url):
+    base_url = get_base_url(url)
+    logger = get_run_logger()
+
+    try:
+        r = requests.get(url)
+        r.raise_for_status()
+    except requests.RequestException as e:
+        logger.error(f"Error requesting URL {url}: {e}")
+        return set()
+
+    bs = BeautifulSoup(r.content, "html.parser")
+    a_tags = bs.findAll("a")
+
     hrefs = {tag.attrs["href"] for tag in a_tags if "href" in tag.attrs.keys()}
     hrefs = {href if href.startswith("http") else base_url + href for href in hrefs}
 
-    # Return only URLs that don't end with .pdf and that start with the base URL
     return {
         href
         for href in hrefs
@@ -67,56 +96,49 @@ def get_urls(url):
 
 
 @task
-def get_pdfs(urls, save_path, print_details=False):
-    # Create/Save path where to store all PDFs
-    path = Path(save_path)
-    path.mkdir(parents=True, exist_ok=True)
+def download_pdf(pdf_url, save_path):
+    logger = get_run_logger()
+    original_filename = os.path.basename(pdf_url).split("/")[-1]
+    rand_num = str(uuid.uuid4())
+    new_filename = original_filename[:-4] + "_" + rand_num + original_filename[-4:]
+    file = Path(new_filename)
+    try:
+        logger.info(f"Downloading PDF: {pdf_url}")
+        r = requests.get(pdf_url, stream=True)
+        r.raise_for_status()
+        put_data_to_s3(r.content, f"{save_path}/{new_filename}")
+        logger.info(f"Successfully uploaded PDF to S3: {file}")
+    except requests.RequestException as e:
+        logger.error(f"Error downloading PDF {pdf_url}: {e}")
 
-    # Loop through the set of PDF URLs, get their contents and save the files
-    for i, pdf_url in enumerate(urls):
 
-        # Extract the original file name from the PDF in the website
-        original_filename = os.path.basename(pdf_url).split("/")[-1]
+@task
+def download_pdfs(urls, save_path):
+    logger = get_run_logger()
+    logger.info(f"Starting download of {len(urls)} PDFs.")
 
-        rand_num = str(uuid.uuid4())
-        new_filename = original_filename[:-4] + "_" + rand_num + original_filename[-4:]
-        file = Path(new_filename)
+    # Submit all download tasks concurrently
+    download_tasks = [download_pdf.submit(url, save_path) for url in urls]
 
-        logger = get_run_logger()
-        if print_details:
-            logger.info(f"Downloading ({i+1}/{len(urls)}) PDF... ")
-        try:
-            r = requests.get(pdf_url, stream=True)
-        except requests.RequestException:
-            logger.info("Error downloading PDF... " + pdf_url)
-            continue
-        if r.status_code != 200:
-            continue
-
-        # If the file content was retrieved successfully, then write & save the new PDF file
-        with open(path.joinpath(file), "wb") as f:
-            f.write(r.content)
-        if print_details:
-            logger.info("Successful... " + new_filename)
+    for download_task in download_tasks:
+        download_task.result()
 
 
 @flow
-def download_pdfs(
-    url, save_path, remaining_levels, original_levels, unique_pdfs, print_details=False
+def download_pdfs_from_url_recursive(
+    url, save_path, remaining_levels, original_levels, unique_pdfs
 ):
-    # Get all PDF URLs and work only with the ones not previously found
-    pdf_urls = get_urls(url)
+    logger = get_run_logger()
+    pdf_urls = get_pdf_urls(url)
     pdf_urls = [f for f in pdf_urls if f not in unique_pdfs]
     unique_pdfs.update(pdf_urls)
 
-    logger = get_run_logger()
-    if remaining_levels == original_levels and print_details:
-        logger.info(
-            f"Depth Level 0 (Main Source) -> {len(pdf_urls)} PDFs found -> "
-            f"Source: {url}"
-        )
+    logger.info(
+        f"Depth Level 0 (Main Source) -> {len(pdf_urls)} PDFs found -> "
+        f"Source: {url}"
+    )
 
-    get_pdfs(pdf_urls, save_path)
+    download_pdfs(pdf_urls, save_path)
 
     if remaining_levels == 0:
         return
@@ -124,44 +146,34 @@ def download_pdfs(
     remaining_levels -= 1
     other_urls = get_urls(url)
     for i, url_inside in enumerate(other_urls):
-        download_pdfs(
+        download_pdfs_from_url_recursive(
             url_inside,
             save_path,
             remaining_levels,
             original_levels,
             unique_pdfs,
-            print_details,
         )
         depth_level = original_levels - remaining_levels
-        if print_details:
-            logger.info(
-                "..." * (depth_level - 1)
-                + f"Depth Level {depth_level} -> {i + 1}/{len(other_urls)} URLs -> "
-                f"Source: {url_inside}"
-            )
+        logger.info(
+            f"Depth Level {depth_level} -> {i + 1}/{len(other_urls)} URLs -> "
+            f"Source: {url_inside}"
+        )
 
 
 @flow
-def get_data():
-    source = fetch_urls_from_s3("data/source.txt", "data")
-    save_path = "data"
-    levels = 1
-    print_details = True
-    proper_save_path = Path(save_path)
-    for i, link in enumerate(source):
-        if print_details:
-            logger = get_run_logger()
-            logger.info(f"Extracting Main Source #{i+1}: {link.strip()}")
-        source_save_path = Path(proper_save_path, str(i + 1))
-        download_pdfs(
+def download_pdfs_from_source(source_path: str, save_path: str, levels: int) -> None:
+    sources = fetch_urls_from_s3(file="data/source.txt")
+    for i, link in enumerate(sources):
+        logger = get_run_logger()
+        logger.info(f"Extracting Main Source #{i+1}: {link}")
+        download_pdfs_from_url_recursive(
             link,
-            source_save_path,
+            save_path,
             remaining_levels=levels,
             original_levels=levels,
             unique_pdfs=set(),
-            print_details=print_details,
         )
 
 
 if __name__ == "__main__":
-    get_data()
+    download_pdfs_from_source(source_path="data", save_path="data/raw", levels=0)
