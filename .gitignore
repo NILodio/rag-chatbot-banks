@@ -144,4 +144,5 @@ env
 
 .github
 data
+!data/source.txt
 Not
