@@ -1,4 +1,4 @@
-import httpx   # an HTTP client library and dependency of Prefect
+import httpx  # an HTTP client library and dependency of Prefect
 from prefect import flow, task
 
 
