@@ -48,7 +48,7 @@ def put_data_to_s3(data: bytes, s3_key: str) -> None:
 
 
 @task
-def get_pdf_urls(url):
+def get_pdf_urls(url, keywords):
     base_url = get_base_url(url)
     logger = get_run_logger()
 
@@ -65,7 +65,9 @@ def get_pdf_urls(url):
     hrefs = [
         tag.attrs["href"]
         for tag in a_tags
-        if "href" in tag.attrs.keys() and tag.attrs["href"].endswith(".pdf")
+        if "href" in tag.attrs.keys()
+        and tag.attrs["href"].endswith(".pdf")
+        and any(keyword in tag.attrs["href"] for keyword in keywords)
     ]
 
     return {href if href.startswith("http") else base_url + href for href in hrefs}
@@ -127,10 +129,15 @@ def download_pdfs(urls, save_path):
 
 @flow
 def download_pdfs_from_url_recursive(
-    url, save_path, remaining_levels, original_levels, unique_pdfs
+    url,
+    save_path,
+    remaining_levels,
+    original_levels,
+    unique_pdfs,
+    keywords,
 ):
     logger = get_run_logger()
-    pdf_urls = get_pdf_urls(url)
+    pdf_urls = get_pdf_urls(url, keywords)
     pdf_urls = [f for f in pdf_urls if f not in unique_pdfs]
     unique_pdfs.update(pdf_urls)
 
@@ -153,6 +160,7 @@ def download_pdfs_from_url_recursive(
             remaining_levels,
             original_levels,
             unique_pdfs,
+            keywords,
         )
         depth_level = original_levels - remaining_levels
         logger.info(
@@ -162,8 +170,17 @@ def download_pdfs_from_url_recursive(
 
 
 @flow
-def download_pdfs_from_source(source_path: str, save_path: str, levels: int) -> None:
+def download_pdfs_from_source(
+    source_path: str,
+    save_path: str,
+    levels: int,
+    keywords: list[str],
+    links: int = None,
+) -> None:
     sources = fetch_urls_from_s3(file="data/source.txt")
+    keywords = [keyword.lower() for keyword in keywords]
+    if links:
+        sources = sources[:links]
     for i, link in enumerate(sources):
         logger = get_run_logger()
         logger.info(f"Extracting Main Source #{i+1}: {link}")
@@ -173,8 +190,11 @@ def download_pdfs_from_source(source_path: str, save_path: str, levels: int) -> 
             remaining_levels=levels,
             original_levels=levels,
             unique_pdfs=set(),
+            keywords=keywords,
         )
 
 
 if __name__ == "__main__":
-    download_pdfs_from_source(source_path="data", save_path="data/raw", levels=0)
+    download_pdfs_from_source(
+        source_path="data", save_path="data/raw", levels=0, links=1, keywords=["2024"]
+    )
