@@ -12,7 +12,8 @@ setup(
     keywords="prefect",
     long_description_content_type="text/markdown",
     version="1.0",
-    packages=find_packages(exclude=["tests"]),
+    packages=find_packages(where="src", exclude=["tests"]),
+    package_dir={"": "src"},
     python_requires=">=3.12",
     install_requires=requirements,
     classifiers=[

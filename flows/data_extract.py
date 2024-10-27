@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from prefect import flow, get_run_logger, task
 from prefect_aws import S3Bucket
+
 from utils import get_base_url
 
 load_dotenv()
