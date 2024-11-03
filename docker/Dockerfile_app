@@ -1,0 +1,32 @@
+# Use the Python 3.12 slim image
+FROM python:3.12-slim
+
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
+
+# Install dependencies including SQLite development files
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    libsqlite3-dev \
+    libhdf5-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy application files
+COPY ../requirements/requirements.txt requirements/requirements.txt
+COPY ../setup.py setup.py
+COPY ../.env .env
+COPY ../src src/
+COPY ../data/chroma data/chroma
+
+# Upgrade pip and install dependencies from setup.py
+RUN python -m pip install --upgrade pip && \
+    python -m pip install --editable .
+
+# For local testing.
+# Set IS_USING_IMAGE_RUNTIME Environment Variable
+ENV IS_USING_IMAGE_RUNTIME=True
+
+
+CMD ["fastapi", "run", "src/api/main.py", "--port", "80"]
