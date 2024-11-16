@@ -22,7 +22,7 @@ This project is about creating a chatbot that makes it easier to explore and und
 ## About The Project
 
 <div align="center">
-  <img src="img/project-showcase.png" alt="Showcase" width="400" height="400">
+  <img src="img/project-showcase.png" alt="Showcase" width="70%">
 </div>
 Using a combination of advanced technologies to build a chatbot that extracts, summarizes, and provides insights from financial reports published by major Canadian banks like RBC, CIBC, and TD, and more. Our pipeline started by processing thousands of PDFs web scrapped from the banks websites. These are converted into a vector store for efficient data retrieval. It utilizes Retrieval-Augmented Generation (RAG) to store relevant information, with a conversation buffer memory that tracks previous interactions and feeds them into the selected LLM along with the current user query. <br>
 The user interface is developed using Streamlit, offering a simple and interactive experience. The solution is deployed on AWS services, leveraging S3 to store thousands of bank reports and Bedrock for scalable AI model management. This architecture ensures secure and compliant data handling while providing fast analysis to financial professionals. The system also integrates MLOps to support continuous updates and model deployment, making it a scalable tool for automating financial report analysis.
