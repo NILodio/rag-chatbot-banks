@@ -7,3 +7,5 @@ chromadb==0.5.0
 langchain==0.2.1
 langchain-aws==0.1.6
 langchain-community==0.2.1
+streamlit
+loguru
