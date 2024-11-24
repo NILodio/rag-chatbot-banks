@@ -18,7 +18,6 @@ COPY ../requirements/requirements.txt requirements/requirements.txt
 COPY ../setup.py setup.py
 COPY ../.env .env
 COPY ../src src/
-COPY ../data/chroma data/chroma
 
 # Upgrade pip and install dependencies from setup.py
 RUN python -m pip install --upgrade pip && \
@@ -29,4 +28,4 @@ RUN python -m pip install --upgrade pip && \
 ENV IS_USING_IMAGE_RUNTIME=True
 
 
-CMD ["fastapi", "run", "src/api/main.py", "--port", "80"]
+CMD ["streamlit", "run", "src/app/app.py", "--server.port=80"]
